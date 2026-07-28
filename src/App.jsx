@@ -75,7 +75,13 @@ export default function App() {
         signal: controller.signal,
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch (e) {
+        console.warn('Response parsing notice:', responseText);
+      }
 
       // Guard: Ignore response if this request has been superseded by a newer submit
       if (currentRequestId !== requestIdRef.current) {
@@ -84,7 +90,11 @@ export default function App() {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Server responded with status ${response.status}`);
+        throw new Error(data.error || `Server returned status ${response.status}`);
+      }
+
+      if (!data.title || !data.ingredients) {
+        throw new Error('Received incomplete recipe data. Please try again.');
       }
 
       setRecipe(data);

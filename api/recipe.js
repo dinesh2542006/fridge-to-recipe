@@ -92,14 +92,19 @@ function getDemoRecipe(ingredientsText) {
   };
 }
 
-export default async function handler(req, res) {
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(data));
+}
 
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.statusCode = 200;
+    return res.end();
   }
 
   let body = req.body;
@@ -113,7 +118,7 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-    return res.status(200).json(getDemoRecipe(ingredients));
+    return sendJson(res, 200, getDemoRecipe(ingredients));
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -150,11 +155,11 @@ export default async function handler(req, res) {
     }
 
     if (!recipe) {
-      return res.status(200).json(getDemoRecipe(ingredients));
+      return sendJson(res, 200, getDemoRecipe(ingredients));
     }
 
-    return res.status(200).json(recipe);
+    return sendJson(res, 200, recipe);
   } catch (error) {
-    return res.status(200).json(getDemoRecipe(ingredients));
+    return sendJson(res, 200, getDemoRecipe(ingredients));
   }
 }
