@@ -1,30 +1,12 @@
 {
-  "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/recipe.js",
-      "use": "@vercel/node"
+      "source": "/api/recipe",
+      "destination": "/api/recipe.js"
     },
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/recipe",
-      "dest": "api/recipe.js",
-      "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"]
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
     }
   ]
 }
