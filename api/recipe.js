@@ -93,6 +93,7 @@ function getDemoRecipe(ingredientsText) {
 }
 
 function sendJson(res, statusCode, data) {
+  console.log(`[VERCEL FUNCTION RESPONSE] Status ${statusCode}:`, JSON.stringify(data).substring(0, 150));
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -102,33 +103,47 @@ function sendJson(res, statusCode, data) {
 }
 
 export default async function handler(req, res) {
+  console.log(`[VERCEL FUNCTION REQUEST] ${req.method} ${req.url}`);
+
   if (req.method === 'OPTIONS') {
     res.statusCode = 200;
     return res.end();
   }
 
-  let body = req.body;
-  if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch (e) {}
-  }
-
-  const ingredients = body?.ingredients || 'chicken, spinach, garlic';
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-    return sendJson(res, 200, getDemoRecipe(ingredients));
-  }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
+  let ingredients = 'chicken, spinach, garlic';
 
   try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.warn('[VERCEL FUNCTION] Failed to parse string body:', e.message);
+      }
+    }
+
+    if (body && body.ingredients) {
+      ingredients = body.ingredients;
+    }
+    console.log('[VERCEL FUNCTION] Received ingredients:', ingredients);
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    const hasApiKey = !!apiKey && apiKey !== 'your_gemini_api_key_here';
+    console.log('[VERCEL FUNCTION] GEMINI_API_KEY present:', hasApiKey);
+
+    if (!hasApiKey) {
+      console.log('[VERCEL FUNCTION] No valid GEMINI_API_KEY. Returning demo recipe.');
+      return sendJson(res, 200, getDemoRecipe(ingredients));
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const modelsToTry = ['gemini-2.0-flash', 'gemini-2.0-flash-lite'];
     let recipe = null;
+    let lastError = null;
 
     for (const modelName of modelsToTry) {
       try {
+        console.log(`[VERCEL FUNCTION] Calling Gemini model: ${modelName}...`);
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
@@ -146,20 +161,24 @@ export default async function handler(req, res) {
           const parsed = JSON.parse(text);
           if (validateRecipe(parsed)) {
             recipe = parsed;
+            console.log(`[VERCEL FUNCTION] Successfully generated recipe via ${modelName}:`, recipe.title);
             break;
           }
         }
       } catch (e) {
-        console.warn(`Vercel function model ${modelName} error:`, e.message);
+        console.warn(`[VERCEL FUNCTION] Model ${modelName} error:`, e.message);
+        lastError = e;
       }
     }
 
     if (!recipe) {
+      console.warn('[VERCEL FUNCTION] Gemini generation failed or quota reached. Returning demo recipe. Error details:', lastError?.message);
       return sendJson(res, 200, getDemoRecipe(ingredients));
     }
 
     return sendJson(res, 200, recipe);
-  } catch (error) {
+  } catch (globalError) {
+    console.error('[VERCEL FUNCTION FATAL ERROR]:', globalError);
     return sendJson(res, 200, getDemoRecipe(ingredients));
   }
 }

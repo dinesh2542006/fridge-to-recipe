@@ -66,6 +66,8 @@ export default function App() {
     setLastQuery(queryText);
 
     try {
+      console.log(`[CLIENT FETCH START] Querying /api/recipe (request #${currentRequestId}) with ingredients: "${queryText}"`);
+
       const response = await fetch('/api/recipe', {
         method: 'POST',
         headers: {
@@ -75,12 +77,16 @@ export default function App() {
         signal: controller.signal,
       });
 
+      console.log(`[CLIENT FETCH RESPONSE] HTTP Status: ${response.status} ${response.statusText}`);
+
       const responseText = await response.text();
+      console.log('[CLIENT FETCH RAW RESPONSE TEXT]:', responseText);
+
       let data = {};
       try {
         data = responseText ? JSON.parse(responseText) : {};
       } catch (e) {
-        console.warn('Response parsing notice:', responseText);
+        console.error('[CLIENT PARSE ERROR] Failed to parse response as JSON:', e, responseText);
       }
 
       // Guard: Ignore response if this request has been superseded by a newer submit
@@ -90,29 +96,27 @@ export default function App() {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || `Server returned status ${response.status}`);
+        throw new Error(data.error || `HTTP ${response.status} ${response.statusText}: ${responseText.substring(0, 150)}`);
       }
 
       if (!data.title || !data.ingredients) {
-        throw new Error('Received incomplete recipe data. Please try again.');
+        throw new Error(`Incomplete recipe output received. Raw response: "${responseText.substring(0, 150)}..."`);
       }
 
       setRecipe(data);
       setStatus('success');
     } catch (error) {
-      // Ignore AbortError when request was intentionally cancelled
       if (error.name === 'AbortError') {
         console.log(`Request #${currentRequestId} aborted.`);
         return;
       }
 
-      // Guard: Ignore error from superseded requests
       if (currentRequestId !== requestIdRef.current) {
         return;
       }
 
-      console.error('Fetch recipe error:', error);
-      setErrorMessage(error.message || 'Failed to generate recipe. Please try again.');
+      console.error('[CLIENT FINAL ERROR HANDLER]:', error);
+      setErrorMessage(error.message || 'Failed to generate recipe. Please check browser devtools console for details.');
       setStatus('error');
     } finally {
       // Clean up ref if this was the active request
