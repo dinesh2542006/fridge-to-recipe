@@ -16,7 +16,8 @@
   "routes": [
     {
       "src": "/api/recipe",
-      "dest": "api/recipe.js"
+      "dest": "api/recipe.js",
+      "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"]
     },
     {
       "handle": "filesystem"
