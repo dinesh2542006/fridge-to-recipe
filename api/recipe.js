@@ -94,19 +94,24 @@ function getDemoRecipe(ingredientsText) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Content-Type', 'application/json');
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { ingredients } = req.body || {};
-
-  if (!ingredients || typeof ingredients !== 'string' || !ingredients.trim()) {
-    return res.status(400).json({ error: 'Please provide a list of ingredients.' });
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {}
   }
+
+  const ingredients = body?.ingredients || 'chicken, spinach, garlic';
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-    return res.json(getDemoRecipe(ingredients));
+    return res.status(200).json(getDemoRecipe(ingredients));
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -143,11 +148,11 @@ export default async function handler(req, res) {
     }
 
     if (!recipe) {
-      return res.json(getDemoRecipe(ingredients));
+      return res.status(200).json(getDemoRecipe(ingredients));
     }
 
-    return res.json(recipe);
+    return res.status(200).json(recipe);
   } catch (error) {
-    return res.json(getDemoRecipe(ingredients));
+    return res.status(200).json(getDemoRecipe(ingredients));
   }
 }
